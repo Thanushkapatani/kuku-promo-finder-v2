@@ -1,35 +1,3 @@
-import re
-
-TS = re.compile(r"Start:\s*\(([^)]+)\)\s*\|\s*End:\s*\(([^)]+)\)")
-
-def to_seconds(value):
-    parts=value.strip().split(":")
-    if len(parts)==3:
-        return int(parts[0])*3600+int(parts[1])*60+float(parts[2])
-    if len(parts)==2:
-        return int(parts[0])*60+float(parts[1])
-    raise ValueError(f"Unsupported timestamp: {value}")
-
-def stamp(value):
-    value=max(0,int(round(value)))
-    return f"{value//60:02d}:{value%60:02d}"
-
-def extract_events(raw):
-    matches=list(TS.finditer(raw)); events=[]
-    for i,m in enumerate(matches):
-        start,end=to_seconds(m.group(1)),to_seconds(m.group(2))
-        prefix=raw[max(0,m.start()-180):m.start()]
-        labels=re.findall(r"\*\*([^*]+):\*\*",prefix)
-        label=labels[-1].strip().upper() if labels else "UNKNOWN"
-        nxt=matches[i+1].start() if i+1<len(matches) else min(len(raw),m.end()+700)
-        body=re.sub(r"\s+"," ",raw[m.end():nxt].strip())
-        quotes=re.findall(r'"([^"]{2,})"',body)
-        kind="dialogue" if label not in {"CAMERA","ACTION","UNKNOWN"} and quotes else ("action" if label=="ACTION" else "camera" if label=="CAMERA" else "other")
-        events.append({"start":start,"end":end,"label":label,"kind":kind,"text":body[:500],"dialogue":" ".join(quotes)[:350]})
-    return [e for e in events if e["end"]>=e["start"]]
-
-def evaluate(events,start,end,logline):
-    inside=[e for e in events if e["end"]>=start and e["start"]<=end]
     if not inside:return None
     opening=[e for e in inside if e["start"]<=start+8 and e["end"]>=start]
     ending=[e for e in inside if e["end"]>=end-9]
@@ -71,6 +39,18 @@ def analyze(filename,raw):
         if len(selected)==3:break
     match=re.search(r"episode-(\d+)",filename,re.I); ep=int(match.group(1)) if match else 0
     for rank,c in enumerate(selected,1):
-        c.update({"episode":ep,"rank_in_episode":rank,"start_time":stamp(c["start"]),"end_time":stamp(c["end"]),"logline":logline})
-        c.pop("start",None);c.pop("end",None)
+        # Round the displayed start once, then derive the displayed end from
+        # that rounded start plus the candidate duration. This keeps the
+        # visible timestamps consistent with the displayed duration.
+        display_start = int(round(c["start"]))
+        display_duration = int(round(c["duration"]))
+        c.update({
+            "episode": ep,
+            "rank_in_episode": rank,
+            "start_time": stamp(display_start),
+            "end_time": stamp(display_start + display_duration),
+            "logline": logline
+        })
+        c.pop("start", None)
+        c.pop("end", None)
     return selected
