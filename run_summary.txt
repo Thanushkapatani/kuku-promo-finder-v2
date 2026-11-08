@@ -1,0 +1,9 @@
+Version 2 actual run
+Input screenplay TXT files: 50
+Episodes represented: 50 / 50
+Candidates generated: 123
+Duration range: 25–60 seconds
+Dialogue hook evidence within first 8 seconds: 122/123
+Dialogue ending evidence within final 9 seconds: 122/123
+Checks: all candidates 20–60s; all have non-empty opening and ending evidence.
+Scoring is deterministic and heuristic; human review remains required.
